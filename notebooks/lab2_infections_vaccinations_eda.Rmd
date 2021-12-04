@@ -1,0 +1,119 @@
+---
+title: "lab2_djm_eda"
+author: "David Miller"
+date: "7/24/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2) 
+library(sandwich)
+library(stargazer)
+library(rjson)
+library(jsonlite)
+library(RCurl)
+```
+
+```{r import data, include=FALSE, message=FALSE, warning=FALSE}
+vax <- read.csv('../src/data/vaccinations_raw_data/us_state_vaccinations.csv')
+infect <- read.csv('../src/data/infections_raw_data/us-states.csv')
+infect_ra <- read.csv('../src/data/infections_raw_data/us-states-rolling-average.csv')
+```
+
+```{r get data from API, include=FALSE, message=FALSE, warning=FALSE}
+# NO LONGER NEEDED
+
+# base_url = 'https://data.cdc.gov/resource/8xkx-amqh.json'
+# full_url = URLencode(base_url)
+# test_vax <- fromJSON(getURL(full_url))
+# head(test_vax)
+```
+
+```{r create model dataset, echo=FALSE, message=FALSE, warning=FALSE}
+
+vax$location[vax$location == 'New York State'] <- 'New York'
+
+model_data <-
+  merge(infect, vax, by.x = c('date','state'), by.y = c('date','location')) %>% 
+  filter(date == '2021-05-30') %>% 
+  mutate(people = round(total_vaccinations / total_vaccinations_per_hundred * 100),
+         cases_per_hundred = (cases / (people / 100)),
+         deaths_per_hundred = (deaths / (people / 100)),
+         vaccination_rate = ((((people_vaccinated - people_fully_vaccinated) * 0.5) + people_fully_vaccinated) / people),
+         infection_rate = cases / people
+         ) %>% 
+  select(state,
+         date,
+         vaccination_rate,
+         infection_rate,
+         people,
+         total_vaccinations,
+         people_vaccinated,
+         people_fully_vaccinated,
+         total_vaccinations_per_hundred,
+         people_vaccinated_per_hundred,
+         people_fully_vaccinated_per_hundred,
+         cases,
+         deaths,
+         cases_per_hundred,
+         deaths_per_hundred
+         )
+
+model_data
+
+```
+
+```{r visualize distributions, echo=FALSE, message=FALSE, warning=FALSE}
+model_data %>%
+  ggplot() +
+  aes(x=vaccination_rate, y=infection_rate) +
+  geom_point() +
+  labs(
+    title='Scatterplot of COVID-19 Vaccination vs. Infection Rates by State',
+    x='Vaccination Rate',
+    y='Infection Rate'
+  )
+
+model_data %>%
+  ggplot() +
+  aes(x=vaccination_rate) +
+  geom_histogram(bins=25) +
+  labs(
+    title='Vaccination Rate Distribution Across US States',
+    x='Vaccination Rate',
+    y='Number of States'
+  )
+
+model_data %>%
+  ggplot() +
+  aes(x=total_vaccinations_per_hundred) +  
+  geom_histogram(bins=25) +
+  labs(
+    title='Vaccinations Distribution Across US States',
+    x='Vaccinations per 100k Residents',
+    y='Number of States'
+  )
+
+model_data %>%
+  ggplot() +
+  aes(x=infection_rate) +
+  geom_histogram(bins=25) +
+  labs(
+    title='Infection Rate Distribution Across US States',
+    x='Infection Rate',
+    y='Number of States'
+  )
+
+model_data %>%
+  ggplot() +
+  aes(x=cases_per_hundred) +
+  geom_histogram(bins=25) +
+  labs(
+    title='Cases Distribution Across US States',
+    x='Cases per 100k Residents',
+    y='Number of States'
+  )
+
+```

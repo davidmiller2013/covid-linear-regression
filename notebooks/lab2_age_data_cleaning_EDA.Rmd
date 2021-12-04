@@ -1,0 +1,44 @@
+---
+title: "lab2_age_data_cleaning_EDA"
+author: "Aysun Ozler"
+date: "7/20/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2) 
+
+library(sandwich)
+library(stargazer)
+```
+
+
+
+```{r loading data}
+age_data_raw <- read_csv("../src/data/age_raw_data/ACSDP1Y2019.DP05_data_with_overlays_2021-07-15T131842.csv")
+
+```
+
+
+```{r cleaning data and drawing histogram}
+age_data <- age_data_raw %>%
+  select(GEO_ID, STATE_NAME = NAME, DP05_0018E) %>%
+  filter(STATE_NAME != "Geographic Area Name") %>%
+  transform(MEDIAN_AGE = as.numeric(DP05_0018E)) %>%
+  select(GEO_ID, STATE_NAME, MEDIAN_AGE)
+
+summary(age_data$MEDIAN_AGE)
+
+age_data %>%
+  ggplot() +
+  aes(x=MEDIAN_AGE) +
+  geom_histogram(bins=20) +
+  labs(
+    title='Median Age Distribution Across US States',
+    subtitle='Distribution is not too non-normal!',
+    x='Median Age in US States',
+    y='Number of States'
+  )
+```

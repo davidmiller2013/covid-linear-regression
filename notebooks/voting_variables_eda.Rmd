@@ -1,0 +1,130 @@
+---
+title: "voting_variables_eda"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2) 
+library(gridExtra)
+library(sandwich)
+library(stargazer)
+```
+
+
+``` {r loading data}
+vax <- read.csv('../src/data/vaccinations_raw_data/us_state_vaccinations.csv')
+infect <- read.csv('../src/data/infections_raw_data/us-states.csv')
+infect_ra <- read.csv('../src/data/infections_raw_data/us-states-rolling-average.csv')
+age_data_raw <- read_csv("../src/data/age_raw_data/ACSDP1Y2019.DP05_data_with_overlays_2021-07-15T131842.csv")
+trips_raw_may2021 <- read_csv("../src/data/trips_by_distance_may2021.csv")
+elections_df <- read_csv("../src/data/elections_raw_data/1976-2020-president.csv")
+summary(elections_df)
+```
+
+
+
+
+
+``` {r clean df including other}
+vot_dist1 <- elections_df %>%
+  select(state, party_simplified, candidatevotes, totalvotes, year) %>%
+  filter(year == 2020) %>%
+  mutate(
+    rep_vote_percentage = case_when(
+      party_simplified == "REPUBLICAN" ~ candidatevotes / totalvotes),
+    dem_vote_percentage = case_when(
+      party_simplified == "DEMOCRAT" ~ candidatevotes / totalvotes)) %>%
+  select(state, rep_vote_percentage, dem_vote_percentage) %>%
+  group_by(state) %>%
+  summarise(
+    rep_vote_percentage = max(rep_vote_percentage, na.rm = T),
+    dem_vote_percentage = max(dem_vote_percentage, na.rm = T))
+  
+vot_dist1
+
+```
+
+
+``` {r voting distribution plot including other}
+dist_plot1 <- vot_dist1 %>%
+  ggplot() +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  aes(x = dem_vote_percentage, y = rep_vote_percentage) + 
+  geom_point() + 
+  labs(x = "Dem Vote %", y = "Rep Vote %", title = "Voting Distribution") +
+  scale_x_continuous(expand = c(0,0),
+                     limits = c(0,1)) +
+  scale_y_continuous(expand = c(0,0),
+                     limits = c(0,1))
+
+
+dist_dem_hist1 <- vot_dist1 %>%
+  ggplot() +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  aes(x = dem_vote_percentage) + 
+  geom_histogram(bins = 20, fill = "Blue") + 
+  labs(x = "Dem Vote %", y = "Frequency", title = "Dem Voting Distribution")
+
+dist_dem_hist1
+
+dist_rep_hist1 <- vot_dist1 %>%
+  ggplot() +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  aes(x = rep_vote_percentage) + 
+  geom_histogram(bins = 20, fill = "Red") + 
+  labs(x = "Rep Vote %", y = "Frequency", title = "Rep Voting Distribution")
+
+dist_rep_hist1
+
+grid.arrange(dist_dem_hist1, dist_rep_hist1, ncol = 2)
+
+```
+
+
+
+
+
+``` {r clean df only rep/dem}
+vot_dist2 <- elections_df %>%
+  select(state, party_simplified, candidatevotes, totalvotes, year) %>%
+  filter(year == 2020) %>%
+  mutate(
+    dem_votes = case_when(
+      party_simplified == "DEMOCRAT" ~ candidatevotes),
+    rep_votes = case_when(
+      party_simplified == "REPUBLICAN" ~ candidatevotes))%>%
+  group_by(state) %>%
+  summarise(
+    dem_votes = max(dem_votes, na.rm = T),
+    rep_votes = max(rep_votes, na.rm = T)) %>%
+  mutate(rep_vote_percentage = rep_votes / (rep_votes + dem_votes)) %>%
+  select(state, rep_vote_percentage)
+  
+vot_dist2
+
+
+```
+
+
+
+
+
+``` {r voting distribution plot only rep/dem}
+
+dist_rep_hist2 <- vot_dist2 %>%
+  ggplot() +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  aes(x = rep_vote_percentage) + 
+  geom_histogram(bins = 20, fill = "Red") + 
+  labs(x = "Rep Votes as % of Dems & Reps", y = "Frequency", title = "Rep Voting Distribution")
+
+dist_rep_hist2
+
+
+```

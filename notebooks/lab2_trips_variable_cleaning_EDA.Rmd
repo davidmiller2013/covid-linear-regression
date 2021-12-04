@@ -1,0 +1,100 @@
+---
+title: "lab2_trips_variable_cleaning_EDA"
+author: "Aysun Ozler"
+date: "7/23/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(ggplot2) 
+
+library(sandwich)
+library(stargazer)
+```
+
+## R Markdown
+
+```{r loading subset of data and writing data back for ease of future use}
+# NO NEED TO RUN THIS AGAIN!!! The raw data was so big so that I couldn't put into github. I worked on a local copy and get the subset for the time frame we would work on. Then, I wrote that into a csv that we would use. We could use that going forward.
+f <- function(x,pos) subset(x, startsWith(as.character(Date), '2021-05-'))
+x <- read_csv_chunked("../../trips_by_distance.csv", DataFrameCallback$new(f))
+write_csv(x, "../src/data/trips_by_distance_may2021.csv")
+```
+
+
+```{r reading subset data}
+trips_raw_may2021 <- read_csv("../src/data/trips_by_distance_may2021.csv")
+
+```
+
+
+```{r cleaning and aggregating data before defining outcome variable}
+trips_aggregated_by_state <- trips_raw_may2021 %>%
+  filter(Level=='State') %>%
+  mutate (Total_Population = `Population Not Staying at Home` + `Population Staying at Home`, Trips_Over_25 = `Number of Trips` - `Number of Trips <1` - `Number of Trips 1-3` - `Number of Trips 3-5` - `Number of Trips 5-10` - `Number of Trips 10-25`) %>%
+  select (Level, Date, `State FIPS`, `State Postal Code`, `Population Staying at Home`, `Population Not Staying at Home`, Total_Population, `Number of Trips`, Trips_Over_25) %>%
+  group_by (`State Postal Code`) %>%
+  summarize(Total_Population_Staying_Home = mean(`Population Staying at Home`), Total_Population_Not_Staying_Home=mean(`Population Not Staying at Home`), Total_Population=mean(Total_Population), Total_Trips = sum(`Number of Trips`), Total_Trips_over_25=sum(Trips_Over_25))
+
+trips_aggregated_by_state
+  
+```
+
+
+```{r defining options of outcome variables and EDA Option 1}
+# Total trips
+trips_aggregated_by_state %>%
+  ggplot() +
+  aes(x=Total_Trips) + 
+  geom_histogram(bins=20) +
+  labs(title = "Total Trips Distribution for States in May 2021",
+      subtitle = "Total trips is following a skewed distribution.",
+      x = "Total Trips for States in US in May 2021",
+      y= "Count")
+
+```
+
+
+```{r defining options of outcome variables and EDA Option 2}
+# Trips per person
+trips_aggregated_by_state %>%
+  mutate(Trips_per_person = Total_Trips/Total_Population) %>%
+  ggplot() +
+  aes(x=Trips_per_person) + 
+  geom_histogram(bins=20) +
+  labs(title = "Trips per Person Distribution for States in May 2021",
+      subtitle = "Trips per person is not too non-normal.",
+      x = "Trips per person for states in US in May 2021",
+      y= "Count")
+
+```
+
+
+```{r defining options of outcome variables and EDA Option 1}
+# Total trips above 25 miles
+trips_aggregated_by_state %>%
+  ggplot() +
+  aes(x=Total_Trips_over_25) + 
+  geom_histogram(bins = 20) +
+  labs(title = "Total Trips over 25 miles Distribution for States in May 2021",
+      subtitle = "Total Trips over 25 miles is also following a skewed distribution.",
+      x = "Total Trips over 25 miles for States in US in May 2021",
+      y= "Count")
+
+```
+
+```{r defining options of outcome variables and EDA Option 1}
+# Total trips above 25 miles per person
+trips_aggregated_by_state %>%
+  mutate(Trips_over_25_per_person = Total_Trips_over_25/Total_Population) %>%
+  ggplot() +
+  aes(x=Trips_over_25_per_person) + 
+  geom_histogram(bins=20) +
+  labs(title = "Trips over 25 miles per Person Distribution for States in May 2021",
+      subtitle = "Trips over 25 miles per person is also not too non-normal.",
+      x = "Trips over 25 miles per person for states in US in May 2021",
+      y = "Count")
+```
